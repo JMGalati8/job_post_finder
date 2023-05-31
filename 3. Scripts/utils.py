@@ -9,6 +9,11 @@ import numpy as np
 import psycopg2
 from psycopg2 import OperationalError
 import json
+import re
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def sleeper(min_second=0.2, max_second=2):
     """
@@ -23,6 +28,16 @@ def sleeper(min_second=0.2, max_second=2):
     min_time = min_second * multiplier
     max_time = max_second * multiplier
     time.sleep(random.randint(min_time, max_time) / multiplier)
+
+
+def db_connection():
+    with open('../1. Admin/db_data.json') as json_data:
+        db_data = json.load(json_data)
+        conn = create_connection(
+            db_data['db_name'], db_data['db_user'], db_data['db_password'], db_data['db_host'], db_data['db_port']
+        )
+
+    return conn
 
 
 def job_info_handler(job_soup):
@@ -42,7 +57,7 @@ def job_info_handler(job_soup):
             "pay": "",
             "category": "",
             'sub_category': '',
-            "posted_date": datetime.datetime.now(),
+            "first_seen": datetime.datetime.now(),
             "job_link": "",
             "site_id": ""
         }
@@ -54,6 +69,7 @@ def job_info_handler(job_soup):
 
             # This is terrible, look for a solution
             job_info['job_link'] = j.find(attrs={'data-automation': 'jobTitle'})['href']
+            job_info['site_id'] = re.search('(\d+)', job_info['job_link']).group(0)
 
         job_output.append(job_info)
 
@@ -86,20 +102,43 @@ def search_site(site_link):
     return output_list
 
 
+def remove_previous_entries(job_ad_list):
+    """
+    Moved this out of the 'search site' function as there were times where we were dropping all records and it was causing issues
+    :param job_ad_list: List of job ads from the 'search site' function
+    :return: Same list but with all entries already in db removed
+    """
+    existing_id = pd.read_sql_query(config.existing_id_sql, con=db_connection())['site_id'].tolist()
+    job_ad_list[:] = [d for d in job_ad_list if d.get('site_id') not in existing_id]
+
+    return job_ad_list
+
+
 def search_job_ad_details(job_info_list):
     """
     :param job_info_list: Cleaned list of jobs broken into individual dictionaries
     :return: Returns the cleaned list of jobs with the job description added to each entry.
     """
+    exception_list = []
     for x in job_info_list:
-        base_link = 'https://www.seek.com.au'
-        job_link = base_link + x['job_link']
-        job_page = requests.get(job_link)
-        job_page_soup = BeautifulSoup(job_page.text, 'html.parser')
-        x['job_ad_details'] = job_page_soup.find(attrs={'data-automation': 'jobAdDetails'}).getText()
+        try:
+            base_link = 'https://www.seek.com.au'
+            job_link = base_link + x['job_link']
+            job_page = requests.get(job_link)
+            job_page_soup = BeautifulSoup(job_page.text, 'html.parser')
+            x['job_ad_details'] = job_page_soup.find(attrs={'data-automation': 'jobAdDetails'}).getText()
+        except AttributeError:
+            exception_list.extend(x)
+            logger.error('Error in Job Ad Details')
         sleeper()
 
     print('Job Details Completed')
+    return exception_list
+
+
+def remove_exception_jobs(results_list, exceptions_list):
+    exception_ids = [x for x in ((d.get('id', -9999) for d in exceptions_list))]
+    results_list[:] = [d for d in results_list if d.get('site_id') not in exception_ids]
 
 
 def create_connection(db_name, db_user, db_password, db_host, db_port):
@@ -161,15 +200,23 @@ def seek_process():
 
     :note: Need to improve this with logging and messages. Also update the connection details to work off a json before we save to git
     """
-    seek_link = 'https://www.seek.com.au/jobs?daterange=1&page='
+
     print('Search Site')
-    results = search_site(seek_link)
-    print('Getting job details')
-    search_job_ad_details(results)
+    results = []
+    for job_classification in config.classification_search_list:
+        seek_link = f'https://www.seek.com.au/{job_classification}?daterange={config.daterange}&page='
+        print(job_classification)
+        site_results = search_site(seek_link)
+        print(len(site_results))
+        results.extend(site_results)
+    results = remove_previous_entries(results)
+    print(f'Getting job details for {len(results)} jobs')
+    exception_list = search_job_ad_details(results)
+    remove_exception_jobs(results, exception_list)
+    pd.DataFrame(exception_list).to_csv('../4. Testing/Exception_List.csv', index=False)
     df = pd.DataFrame(results)
     df = df.replace(r'^\s*$', np.nan, regex=True)
-    df['site_id'] = df['job_link'].str.extract('(\d+)')
-    print('Writing data to db')
+    print(f'Writing data to db - {df.shape[0]} rows')
 
     with open('../1. Admin/db_data.json') as json_data:
         db_data = json.load(json_data)
