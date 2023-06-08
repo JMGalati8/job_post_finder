@@ -210,13 +210,6 @@ def seek_process():
         print(len(site_results))
         results.extend(site_results)
     results = remove_previous_entries(results)
-    print(f'Getting job details for {len(results)} jobs')
-    exception_list = search_job_ad_details(results)
-    remove_exception_jobs(results, exception_list)
-    pd.DataFrame(exception_list).to_csv('../4. Testing/Exception_List.csv', index=False)
-    df = pd.DataFrame(results)
-    df = df.replace(r'^\s*$', np.nan, regex=True)
-    print(f'Writing data to db - {df.shape[0]} rows')
 
     with open('../1. Admin/db_data.json') as json_data:
         db_data = json.load(json_data)
@@ -224,4 +217,13 @@ def seek_process():
             db_data['db_name'], db_data['db_user'], db_data['db_password'], db_data['db_host'], db_data['db_port']
         )
 
-    execute_many(conn, df, 'jobs_details')
+    execute_many(conn, pd.DataFrame(results), 'jobs_details')
+
+    print(f'Getting job details for {len(results)} jobs')
+    exception_list = search_job_ad_details(results)
+    remove_exception_jobs(results, exception_list)
+    pd.DataFrame(exception_list).to_csv('../4. Testing/Exception_List.csv', index=False)
+    df = pd.DataFrame(results)
+    df = df.replace(r'^\s*$', np.nan, regex=True)
+    print(f'Writing data to db - {df.shape[0]} rows')
+    #execute_many(conn, df, 'jobs_details')
