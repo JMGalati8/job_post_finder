@@ -2,6 +2,7 @@ import utils
 import config
 import pandas as pd
 
-df = pd.DataFrame(config.attributes)
-
-print(utils.create_sql_insert_query(df, 'table_name'))
+conn = utils.sql_conn()
+cur = conn.cursor()
+cur.execute(config.missing_job_details_insert_sql)
+conn.commit()

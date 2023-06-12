@@ -51,10 +51,10 @@ classification_search_list = [
 ]
 
 missing_job_details_insert_sql = """
-    insert into missing_job_details(id, job_link) 
-    select
-        id,
-        job_link 
-    from jobs_details 
-    where job_ad_details is null
+insert into missing_job_details(id, job_link) 
+select
+    id,
+    job_link 
+from jobs_details 
+where job_ad_details is null
 	"""

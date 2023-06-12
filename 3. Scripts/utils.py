@@ -224,6 +224,7 @@ def job_info_process():
     job_details_df = pd.DataFrame(results)
     execute_many(conn, job_details_df, 'jobs_details')
     conn.cursor().execute(config.missing_job_details_insert_sql)
+    conn.commit()
     print('Job info search complete')
 
 
