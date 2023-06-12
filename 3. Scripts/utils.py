@@ -141,6 +141,16 @@ def remove_exception_jobs(results_list, exceptions_list):
     results_list[:] = [d for d in results_list if d.get('site_id') not in exception_ids]
 
 
+def create_sql_insert_query(df, table):
+
+    # Comma-separated dataframe columns
+    cols = ','.join(list(df.columns))
+    tuple_values = ','.join(['%%s' for x in list(df.columns)])
+    # SQL quert to execute
+    query = f"INSERT INTO %s(%s) VALUES({tuple_values})" % (table, cols)
+
+    return query
+
 def create_connection(db_name, db_user, db_password, db_host, db_port):
     """
 
@@ -176,10 +186,7 @@ def execute_many(conn, df, table):
     """
     # Create a list of tupples from the dataframe values
     tuples = [tuple(x) for x in df.to_numpy()]
-    # Comma-separated dataframe columns
-    cols = ','.join(list(df.columns))
-    # SQL quert to execute
-    query = "INSERT INTO %s(%s) VALUES(%%s,%%s,%%s,%%s,%%s,%%s,%%s,%%s,%%s,%%s,%%s)" % (table, cols)
+    query = create_sql_insert_query(df, table)
     cursor = conn.cursor()
     try:
         cursor.executemany(query, tuples)
@@ -193,13 +200,16 @@ def execute_many(conn, df, table):
     cursor.close()
 
 
-def seek_process():
-    """
-    Complete seek process, scraping details and saving these into the pre-defined table
-    :return: update db
+def sql_conn():
+    with open('../1. Admin/db_data.json') as json_data:
+        db_data = json.load(json_data)
+        conn = create_connection(
+            db_data['db_name'], db_data['db_user'], db_data['db_password'], db_data['db_host'], db_data['db_port']
+        )
+    return conn
 
-    :note: Need to improve this with logging and messages. Also update the connection details to work off a json before we save to git
-    """
+
+def job_info_process():
 
     print('Search Site')
     results = []
@@ -210,20 +220,32 @@ def seek_process():
         print(len(site_results))
         results.extend(site_results)
     results = remove_previous_entries(results)
+    conn = sql_conn()
+    job_details_df = pd.DataFrame(results)
+    execute_many(conn, job_details_df, 'jobs_details')
+    conn.cursor().execute(config.missing_job_details_insert_sql)
+    print('Job info search complete')
 
-    with open('../1. Admin/db_data.json') as json_data:
-        db_data = json.load(json_data)
-        conn = create_connection(
-            db_data['db_name'], db_data['db_user'], db_data['db_password'], db_data['db_host'], db_data['db_port']
-        )
 
-    execute_many(conn, pd.DataFrame(results), 'jobs_details')
+def job_details_process():
 
-    print(f'Getting job details for {len(results)} jobs')
-    exception_list = search_job_ad_details(results)
-    remove_exception_jobs(results, exception_list)
-    pd.DataFrame(exception_list).to_csv('../4. Testing/Exception_List.csv', index=False)
-    df = pd.DataFrame(results)
-    df = df.replace(r'^\s*$', np.nan, regex=True)
-    print(f'Writing data to db - {df.shape[0]} rows')
+    return None
+
+
+def seek_process():
+    """
+    Complete seek process, scraping details and saving these into the pre-defined table
+    :return: update db
+
+    :note: Need to improve this with logging and messages. Also update the connection details to work off a json before we save to git
+    """
+
+    #print(f'Getting job details for {len(results)} jobs')
+    #exception_list = search_job_ad_details(results)
+    #remove_exception_jobs(results, exception_list)
+    #pd.DataFrame(exception_list).to_csv('../4. Testing/Exception_List.csv', index=False)
+    #df = pd.DataFrame(results)
+    #df = df.replace(r'^\s*$', np.nan, regex=True)
+    #print(f'Writing data to db - {df.shape[0]} rows')
     #execute_many(conn, df, 'jobs_details')
+    return None

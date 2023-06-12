@@ -1,4 +1,4 @@
-from utils import seek_process
+import utils
 import logging
 
 
@@ -7,9 +7,10 @@ def main():
                         level=logging.WARNING,
                         format='%(asctime)s - %(name)s - %(threadName)s -  %(levelname)s - %(message)s')
     logging.info('Started')
-    seek_process()
+    utils.job_info_process()
     logging.info('Finished')
 
 
 if __name__ == '__main__':
     main()
+
