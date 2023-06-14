@@ -11,6 +11,7 @@ from psycopg2 import OperationalError
 import json
 import re
 import logging
+from requests_ip_rotator import ApiGateway
 
 logger = logging.getLogger(__name__)
 
@@ -119,19 +120,35 @@ def search_job_ad_details(job_info_list):
     :param job_info_list: Cleaned list of jobs broken into individual dictionaries
     :return: Returns the cleaned list of jobs with the job description added to each entry.
     """
+    with open('../1. Admin/gateway_setup.json') as json_data:
+        api_data = json.load(json_data)
+        gateway = ApiGateway("https://www.seek.com.au",
+                             access_key_id=api_data['access_key_id'],
+                             access_key_secret=api_data['access_key_secret'])
+        gateway.start()
+
+    session = requests.Session()
+    session.mount("https://www.seek.com.au", gateway)
+
     exception_list = []
     for x in job_info_list:
         try:
             base_link = 'https://www.seek.com.au'
             job_link = base_link + x['job_link']
-            job_page = requests.get(job_link)
+            job_page = session.get(job_link, headers=config.headers)
             job_page_soup = BeautifulSoup(job_page.text, 'html.parser')
             x['job_ad_details'] = job_page_soup.find(attrs={'data-automation': 'jobAdDetails'}).getText()
+            print('Success')
         except AttributeError:
             exception_list.extend(x)
-            logger.error('Error in Job Ad Details')
+            logger.error('Attribute Error in Job Ad Details')
+        except requests.exceptions.TooManyRedirects:
+            exception_list.extend(x)
+            logger.error('Too Many Redirects Error in Job Ad Details')
+            print('Too many redirects')
         sleeper()
 
+    gateway.shutdown()
     print('Job Details Completed')
     return exception_list
 
@@ -227,7 +244,6 @@ def job_details_process():
     exception_list = search_job_ad_details(missing_jobs_list)
     pd.DataFrame(exception_list).to_csv('../4. Testing/Exception_List.csv', index=False)
     remove_exception_jobs(missing_jobs_list, exception_list)
-    pd.DataFrame(exception_list).to_csv('../4. Testing/Exception_List.csv', index=False)
     df = pd.DataFrame(missing_jobs_list)
     df = df.replace(r'^\s*$', np.nan, regex=True)
     print(f'Writing data to db - {df.shape[0]} rows')

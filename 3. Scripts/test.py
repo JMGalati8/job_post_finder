@@ -6,11 +6,6 @@ from bs4 import BeautifulSoup
 from requests_ip_rotator import ApiGateway
 import json
 
-proxy = {
-    "https": 'https://104.248.57.192:8080',
-    "http": 'https://104.248.57.192:8080'
-}
-
 
 missing_jobs = pd.read_sql_query(config.missing_job_details_select_sql, con=utils.db_connection())
 missing_jobs_list = missing_jobs.to_dict('records')
@@ -25,7 +20,7 @@ with open('../1. Admin/gateway_setup.json') as json_data:
 session = requests.Session()
 session.mount("https://www.seek.com.au", gateway)
 
-for x in missing_jobs_list[0:10]:
+for x in missing_jobs_list[0:3]:
     try:
         base_link = 'https://www.seek.com.au'
         job_link = base_link + x['job_link']
