@@ -131,6 +131,8 @@ def search_job_ad_details(job_info_list):
     session.mount("https://www.seek.com.au", gateway)
 
     exception_list = []
+    success_counter = 0
+    failed_counter = 0
     for x in job_info_list:
         try:
             base_link = 'https://www.seek.com.au'
@@ -138,15 +140,21 @@ def search_job_ad_details(job_info_list):
             job_page = session.get(job_link, headers=config.headers)
             job_page_soup = BeautifulSoup(job_page.text, 'html.parser')
             x['job_ad_details'] = job_page_soup.find(attrs={'data-automation': 'jobAdDetails'}).getText()
-            print('Success')
+            success_counter += 1
         except AttributeError:
             exception_list.extend(x)
             logger.error('Attribute Error in Job Ad Details')
+            failed_counter += 1
         except requests.exceptions.TooManyRedirects:
             exception_list.extend(x)
             logger.error('Too Many Redirects Error in Job Ad Details')
-            print('Too many redirects')
+            failed_counter += 1
         sleeper()
+
+        if success_counter + failed_counter == 10:
+            print(f'Number Success: {success_counter} \n Number Failure {failed_counter}')
+        if success_counter + failed_counter % 250 == 0:
+            print(f'Number Success: {success_counter} \n Number Failure {failed_counter}')
 
     gateway.shutdown()
     print('Job Details Completed')
