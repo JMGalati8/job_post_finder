@@ -13,6 +13,8 @@ attributes ={
     'job_link': {'data-automation': 'jobSubClassification'}
 }
 
+headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36'}
+
 daterange=2
 
 existing_id_sql = f'select site_id from jobs_details where first_seen >= current_date-{daterange}'
@@ -58,3 +60,10 @@ select
 from jobs_details 
 where job_ad_details is null
 	"""
+
+missing_job_details_select_sql = """
+select 
+	*
+from jobs_details
+where id in (select id from missing_job_details)
+"""

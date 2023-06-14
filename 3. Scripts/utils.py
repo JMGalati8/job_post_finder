@@ -151,6 +151,7 @@ def create_sql_insert_query(df, table):
 
     return query
 
+
 def create_connection(db_name, db_user, db_password, db_host, db_port):
     """
 
@@ -200,15 +201,6 @@ def execute_many(conn, df, table):
     cursor.close()
 
 
-def sql_conn():
-    with open('../1. Admin/db_data.json') as json_data:
-        db_data = json.load(json_data)
-        conn = create_connection(
-            db_data['db_name'], db_data['db_user'], db_data['db_password'], db_data['db_host'], db_data['db_port']
-        )
-    return conn
-
-
 def job_info_process():
 
     print('Search Site')
@@ -220,7 +212,7 @@ def job_info_process():
         print(len(site_results))
         results.extend(site_results)
     results = remove_previous_entries(results)
-    conn = sql_conn()
+    conn = db_connection()
     job_details_df = pd.DataFrame(results)
     execute_many(conn, job_details_df, 'jobs_details')
     conn.cursor().execute(config.missing_job_details_insert_sql)
@@ -229,8 +221,18 @@ def job_info_process():
 
 
 def job_details_process():
-
-    return None
+    print('Job details process starting')
+    missing_jobs = pd.read_sql_query(config.missing_job_details_select_sql, con=db_connection())
+    missing_jobs_list = missing_jobs.to_dict('records')
+    exception_list = search_job_ad_details(missing_jobs_list)
+    pd.DataFrame(exception_list).to_csv('../4. Testing/Exception_List.csv', index=False)
+    remove_exception_jobs(missing_jobs_list, exception_list)
+    pd.DataFrame(exception_list).to_csv('../4. Testing/Exception_List.csv', index=False)
+    df = pd.DataFrame(missing_jobs_list)
+    df = df.replace(r'^\s*$', np.nan, regex=True)
+    print(f'Writing data to db - {df.shape[0]} rows')
+    conn = db_connection()
+    execute_many(conn, df, 'jobs_details')
 
 
 def seek_process():
