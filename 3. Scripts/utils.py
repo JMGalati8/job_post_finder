@@ -7,6 +7,7 @@ import config
 import pandas as pd
 import numpy as np
 import psycopg2
+import psycopg2.extras
 from psycopg2 import OperationalError
 import json
 import re
@@ -228,6 +229,21 @@ def execute_many(conn, df, table):
     cursor.close()
 
 
+def update_job_details_table(conn, df, table):
+    cursor = conn.cursor()
+    df = df[['id', 'job_ad_details']]
+    tuples = [tuple(x) for x in df.to_numpy()]
+    update_query = f"""UPDATE {table} AS t 
+                      SET job_ad_details = e.job_ad_details 
+                      FROM (VALUES %s) AS e(id, job_ad_details) 
+                      WHERE e.id = t.id;"""
+
+    psycopg2.extras.execute_values(
+        cursor, update_query, tuples, template=None, page_size=100
+    )
+    conn.commit()
+
+
 def job_info_process():
 
     print('Search Site')
@@ -254,10 +270,12 @@ def job_details_process():
     exception_list = search_job_ad_details(missing_jobs_list)
     remove_exception_jobs(missing_jobs_list, exception_list)
     df = pd.DataFrame(missing_jobs_list)
+    print(df)
     df = df.replace(r'^\s*$', np.nan, regex=True)
     print(f'Writing data to db - {df.shape[0]} rows')
     conn = db_connection()
-    execute_many(conn, df, 'jobs_details')
+    update_job_details_table(conn, df, 'jobs_details')
+    #execute_many(conn, df, 'jobs_details')
 
 
 def seek_process():
