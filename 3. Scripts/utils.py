@@ -152,14 +152,11 @@ def search_job_ad_details(job_info_list):
                 failed_counter += 1
             sleeper()
             if success_counter + failed_counter == 1:
-                print('Started')
-            if (success_counter + failed_counter) % 10 == 0:
+                print('Started job details search')
+            if (success_counter + failed_counter) % 200 == 0:
                 print(f'Number Success: {success_counter} \n Number Failure {failed_counter}')
-            # Temporary to test with
-            if (success_counter + failed_counter) % 10 == 0:
-                break
 
-    #gateway.shutdown()
+    gateway.shutdown()
     print('Job Details Completed')
     return exception_list
 
@@ -231,7 +228,8 @@ def execute_many(conn, df, table):
 
 def update_job_details_table(conn, df, table):
     cursor = conn.cursor()
-    df = df[['id', 'job_ad_details']]
+    df = df[['id', 'job_ad_details']].copy()
+    df['job_ad_details'] = df['job_ad_details'].str.encode('ascii', 'ignore').str.decode('ascii')
     tuples = [tuple(x) for x in df.to_numpy()]
     update_query = f"""UPDATE {table} AS t 
                       SET job_ad_details = e.job_ad_details 
@@ -242,6 +240,7 @@ def update_job_details_table(conn, df, table):
         cursor, update_query, tuples, template=None, page_size=100
     )
     conn.commit()
+    conn.close()
 
 
 def job_info_process():
@@ -270,7 +269,6 @@ def job_details_process():
     exception_list = search_job_ad_details(missing_jobs_list)
     remove_exception_jobs(missing_jobs_list, exception_list)
     df = pd.DataFrame(missing_jobs_list)
-    print(df)
     df = df.replace(r'^\s*$', np.nan, regex=True)
     print(f'Writing data to db - {df.shape[0]} rows')
     conn = db_connection()
