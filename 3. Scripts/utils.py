@@ -155,6 +155,7 @@ def search_job_ad_details(job_info_list):
                 print('Started job details search')
             if (success_counter + failed_counter) % 200 == 0:
                 print(f'Number Success: {success_counter} \n Number Failure {failed_counter}')
+                break
 
     gateway.shutdown()
     print('Job Details Completed')
@@ -229,7 +230,8 @@ def execute_many(conn, df, table):
 def update_job_details_table(conn, df, table):
     cursor = conn.cursor()
     df = df[['id', 'job_ad_details']].copy()
-    df['job_ad_details'] = df['job_ad_details'].str.encode('ascii', 'ignore').str.decode('ascii')
+    df['job_ad_details'] = df['job_ad_details'].str.encode('ascii', 'ignore').str.decode('ascii').astype('str')
+    print(f'Writing data to db - {df.shape[0]} rows')
     tuples = [tuple(x) for x in df.to_numpy()]
     update_query = f"""UPDATE {table} AS t 
                       SET job_ad_details = e.job_ad_details 
@@ -239,6 +241,7 @@ def update_job_details_table(conn, df, table):
     psycopg2.extras.execute_values(
         cursor, update_query, tuples, template=None, page_size=100
     )
+    #conn.cursor().execute(config.missing_job_details_delete_sql)
     conn.commit()
     conn.close()
 
@@ -257,23 +260,26 @@ def job_info_process():
     conn = db_connection()
     job_details_df = pd.DataFrame(results)
     execute_many(conn, job_details_df, 'jobs_details')
-    conn.cursor().execute(config.missing_job_details_insert_sql)
-    conn.commit()
     print('Job info search complete')
 
 
 def job_details_process():
     print('Job details process starting')
+    conn = db_connection()
+    conn.cursor().execute(config.missing_job_details_insert_sql)
+    conn.commit()
     missing_jobs = pd.read_sql_query(config.missing_job_details_select_sql, con=db_connection())
     missing_jobs_list = missing_jobs.to_dict('records')
     exception_list = search_job_ad_details(missing_jobs_list)
     remove_exception_jobs(missing_jobs_list, exception_list)
     df = pd.DataFrame(missing_jobs_list)
     df = df.replace(r'^\s*$', np.nan, regex=True)
-    print(f'Writing data to db - {df.shape[0]} rows')
-    conn = db_connection()
+    df = df.replace('', np.nan)
+    df = df.replace('NaN', np.nan)
+    df = df.loc[~df['job_ad_details'].isna()]
+    # Testing - Need to delete later
+    df.to_csv('../4. Testing/test_df_output.csv', index=False)
     update_job_details_table(conn, df, 'jobs_details')
-    #execute_many(conn, df, 'jobs_details')
 
 
 def seek_process():

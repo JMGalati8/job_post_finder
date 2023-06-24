@@ -74,3 +74,15 @@ select
 from jobs_details
 where id in (select id from missing_job_details)
 """
+
+missing_job_details_delete_sql = """
+delete from missing_job_details
+where id in (
+    select 
+        a.id
+    from missing_job_details a
+    inner join jobs_details b 
+        on a.id = b.id 
+    where b.job_ad_details is not null 
+    );
+"""
