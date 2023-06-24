@@ -20,10 +20,8 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="e3b3cef7-7873-4cf9-8729-4d544c9c56e7" name="Default Changelist" comment="Corrected issue with exception list in job ad details">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/3. Scripts/config.py" beforeDir="false" afterPath="$PROJECT_DIR$/3. Scripts/config.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/3. Scripts/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/3. Scripts/test.py" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/3. Scripts/utils.py" beforeDir="false" afterPath="$PROJECT_DIR$/3. Scripts/utils.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/4. Testing/test_df_output.csv" beforeDir="false" afterPath="$PROJECT_DIR$/4. Testing/test_df_output.csv" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />

@@ -7,7 +7,7 @@ def main():
                         level=logging.WARNING,
                         format='%(asctime)s - %(name)s - %(threadName)s -  %(levelname)s - %(message)s')
     logging.info('Started')
-    #utils.job_info_process()
+    utils.job_info_process()
     logging.info('Completed job info search')
     utils.job_details_process()
     logging.info('Finished')

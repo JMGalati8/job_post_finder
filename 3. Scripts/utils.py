@@ -155,7 +155,7 @@ def search_job_ad_details(job_info_list):
                 print('Started job details search')
             if (success_counter + failed_counter) % 200 == 0:
                 print(f'Number Success: {success_counter} \n Number Failure {failed_counter}')
-                break
+
 
     gateway.shutdown()
     print('Job Details Completed')
@@ -241,7 +241,7 @@ def update_job_details_table(conn, df, table):
     psycopg2.extras.execute_values(
         cursor, update_query, tuples, template=None, page_size=100
     )
-    #conn.cursor().execute(config.missing_job_details_delete_sql)
+    conn.cursor().execute(config.missing_job_details_delete_sql)
     conn.commit()
     conn.close()
 
@@ -274,11 +274,8 @@ def job_details_process():
     remove_exception_jobs(missing_jobs_list, exception_list)
     df = pd.DataFrame(missing_jobs_list)
     df = df.replace(r'^\s*$', np.nan, regex=True)
-    df = df.replace('', np.nan)
-    df = df.replace('NaN', np.nan)
+    df = df.replace('', np.nan).replace('NaN', np.nan)
     df = df.loc[~df['job_ad_details'].isna()]
-    # Testing - Need to delete later
-    df.to_csv('../4. Testing/test_df_output.csv', index=False)
     update_job_details_table(conn, df, 'jobs_details')
 
 
